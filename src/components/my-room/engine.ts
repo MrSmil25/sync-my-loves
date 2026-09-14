@@ -249,6 +249,8 @@ export function createMyRoomEngine(
 
   function pointerDown(event: PointerEvent) {
     if (paused || poseValue !== poseTarget) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("input, button, a, label, form, .mr-card, .mr-top")) return;
     dragging = true;
     dragStartX = event.clientX;
     dragLastX = event.clientX;
