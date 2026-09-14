@@ -219,6 +219,7 @@ export function createMyRoomEngine(
     if (destroyed || document.hidden) return;
     const delta = Math.min((now - last) / 1000, 0.05);
     last = now;
+    if (poseValue !== poseTarget) console.log("MRDBG frame", poseValue.toFixed(2));
     if (poseValue !== poseTarget) {
       const step = delta / 0.9;
       poseValue =
@@ -314,6 +315,7 @@ export function createMyRoomEngine(
         return;
       }
       poseTarget = 1;
+      console.log("MRDBG engine target1", destroyed, paused, raf);
       transitionDone = done;
       last = performance.now();
       schedule();
