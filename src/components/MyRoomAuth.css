@@ -192,9 +192,13 @@
 .mr-eye { position: absolute !important; right: 3px; width: 40px !important; height: 40px !important; border-radius: 7px !important; color: var(--mr-muted) !important; }
 .mr-eye svg { width: 16px; height: 16px; }
 .mr-forgot-row { margin-top: -7px; text-align: right; }
-.mr-forgot-row a, .mr-signup-row a { padding: 5px 0; color: var(--mr-blue); font-size: 11px; text-decoration: none; }
-.my-room[data-theme="dark"] .mr-forgot-row a, .my-room[data-theme="dark"] .mr-signup-row a { color: #c3d6fa; }
-.mr-forgot-row a:hover, .mr-signup-row a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.mr-forgot-row a, .mr-signup-row a, .mr-link {
+  border: 0; background: transparent;
+}
+.mr-forgot-row a, .mr-signup-row a, .mr-link { padding: 5px 0; color: var(--mr-blue); font-size: 11px; text-decoration: none; }
+.mr-signup-row .mr-link { margin-left: 5px; }
+.my-room[data-theme="dark"] .mr-forgot-row a, .my-room[data-theme="dark"] .mr-signup-row a, .my-room[data-theme="dark"] .mr-link { color: #c3d6fa; }
+.mr-forgot-row a:hover, .mr-signup-row a:hover, .mr-link:hover { text-decoration: underline; text-underline-offset: 4px; }
 .mr-status { margin: 0; padding: 12px; border: 1px solid rgba(170, 198, 251, .1); border-radius: 8px; background: rgba(191, 214, 255, .03); color: var(--mr-ink); font-size: 11px; line-height: 1.7; }
 .my-room[data-theme="light"] .mr-status { border-color: rgba(54, 99, 212, .16); background: rgba(54, 99, 212, .05); }
 .mr-submit {
