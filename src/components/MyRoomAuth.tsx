@@ -343,12 +343,31 @@ export function MyRoomAuth({ view = "login" }: { view?: "intro" | "login" }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [closeForm, view]);
 
+  const pressRef = useRef<{ x: number; y: number } | null>(null);
+
+  function handleStagePointerDown(event: React.PointerEvent) {
+    pressRef.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function handleStageClick(event: React.MouseEvent) {
+    const start = pressRef.current;
+    pressRef.current = null;
+    if ((event.target as HTMLElement).closest(".mr-top")) return;
+    if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) return;
+    openForm();
+  }
+
   const showIntro = view === "intro" || phase === "intro";
 
   if (!ready) return null;
   return (
     <div ref={rootRef} className="my-room" data-theme={theme}>
-      <main className={`mr-stage ${showIntro ? "mr-landing-view" : "mr-login-view"}`} data-my-room-stage aria-label="My Room">
+      <main
+        className={`mr-stage ${showIntro ? "mr-landing-view" : "mr-login-view"}`}
+        data-my-room-stage
+        aria-label="My Room"
+        {...(showIntro ? { onPointerDown: handleStagePointerDown, onClick: handleStageClick } : {})}
+      >
         <div className="mr-aura" aria-hidden="true" />
         <div className="mr-horizon" aria-hidden="true" />
         <canvas className="mr-ambient" data-ambient-canvas aria-hidden="true" />
