@@ -1,7 +1,4 @@
-import { useEffect } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { MyRoomAuth } from "@/components/MyRoomAuth";
-import { supabase } from "@/lib/supabase-external";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -20,29 +17,11 @@ export const Route = createFileRoute("/")({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
-    links: [
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" },
-    ],
   }),
-  component: OpeningPage,
+  beforeLoad: async () => {
+    const { supabase } = await import("@/lib/supabase-external");
+    const { data } = await supabase.auth.getUser();
+    throw redirect({ to: data.user ? "/dashboard" : "/login", replace: true });
+  },
+  component: () => null,
 });
-
-function OpeningPage() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    let active = true;
-
-    void supabase.auth.getUser().then(({ data }) => {
-      if (active && data.user) void navigate({ to: "/dashboard", replace: true });
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [navigate]);
-
-  return <MyRoomAuth view="intro" />;
-}
