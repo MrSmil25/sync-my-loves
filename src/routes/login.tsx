@@ -1,0 +1,32 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { MyRoomAuth } from "@/components/MyRoomAuth";
+
+export const Route = createFileRoute("/login")({
+  ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Masuk — My Room" },
+      {
+        name: "description",
+        content: "Masuk ke My Room, ruang bersama untuk terhubung dan bertumbuh.",
+      },
+      { property: "og:title", content: "Masuk — My Room" },
+      {
+        property: "og:description",
+        content: "Masuk ke My Room, ruang bersama untuk terhubung dan bertumbuh.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+    links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" },
+    ],
+  }),
+  component: LoginPage,
+});
+
+function LoginPage() {
+  return <MyRoomAuth view="login" />;
+}
