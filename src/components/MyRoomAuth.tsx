@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Eye, EyeOff, Moon, Pause, Play, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoAsset from "@/assets/Logo_aplikasi_MR.png.asset.json";
@@ -14,6 +14,9 @@ import {
 import "./MyRoomAuth.css";
 
 const THEME_KEY = "my-room-theme";
+const SKIP_INTRO_KEY = "my-room-skip-intro";
+
+type AuthMode = "login" | "register" | "forgot";
 
 function readInitialTheme(): MyRoomTheme {
   const stored = window.localStorage.getItem(THEME_KEY);
@@ -63,13 +66,37 @@ function MyRoomHeader({
   );
 }
 
-function LoginCard({ onBack }: { onBack: () => void }) {
+const MAIL_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6" aria-hidden="true"><path d="M4 6.5h16v11H4zM4.5 7l7.5 6 7.5-6" /></svg>
+);
+const LOCK_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+);
+const USER_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" /><path d="M5 19.5c1.4-3.4 4-5 7-5s5.6 1.6 7 5" /></svg>
+);
+
+const COPY: Record<AuthMode, { title: string; description: string; action: string }> = {
+  login: { title: "Masuk ke My Room", description: "Senang ketemu lo lagi.", action: "Masuk" },
+  register: { title: "Bikin akun My Room", description: "Mulai dari ruang yang sama.", action: "Daftar" },
+  forgot: { title: "Lupa password?", description: "Masukkan email akun lo.", action: "Kirim tautan reset" },
+};
+
+function AuthCard({ onBack }: { onBack: () => void }) {
   const navigate = useNavigate();
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+
+  function switchMode(next: AuthMode) {
+    setMode(next);
+    setStatus("");
+    setPassword("");
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,16 +104,67 @@ function LoginCard({ onBack }: { onBack: () => void }) {
     setBusy(true);
     setStatus("Memproses…");
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      if (mode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) {
+          setStatus(error.message);
+          return;
+        }
+        setStatus("Berhasil masuk. Membuka My Room…");
+        await navigate({ to: "/dashboard", replace: true });
+        return;
+      }
+
+      if (mode === "register") {
+        if (fullName.trim().length < 3) {
+          setStatus("Nama lengkap minimal 3 karakter.");
+          return;
+        }
+        if (password.length < 6) {
+          setStatus("Password minimal 6 karakter.");
+          return;
+        }
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: { full_name: fullName.trim() },
+          },
+        });
+        if (error) {
+          setStatus(error.message);
+          return;
+        }
+        if (data.session) {
+          setStatus("Akun dibuat. Membuka My Room…");
+          await navigate({ to: "/dashboard", replace: true });
+          return;
+        }
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (signInError) {
+          setStatus("Akun dibuat. Cek email lo buat konfirmasi, lalu masuk.");
+          switchMode("login");
+          return;
+        }
+        await navigate({ to: "/dashboard", replace: true });
+        return;
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) {
         setStatus(error.message);
         return;
       }
-      setStatus("Berhasil masuk. Membuka My Room…");
-      await navigate({ to: "/dashboard", replace: true });
+      setStatus("Kalau email lo terdaftar, tautan reset sudah dikirim.");
     } catch {
       setStatus("Ada gangguan koneksi. Coba lagi sebentar lagi.");
     } finally {
@@ -94,42 +172,71 @@ function LoginCard({ onBack }: { onBack: () => void }) {
     }
   }
 
+  const copy = COPY[mode];
+
   return (
     <>
       <Button type="button" variant="ghost" className="mr-back" onClick={onBack}>← Kembali</Button>
-      <section className="mr-account-area" aria-labelledby="login-title">
+      <section className="mr-account-area" aria-labelledby="mr-auth-title">
         <div className="mr-card">
-          <div className="mr-card-logo"><img src={logoAsset.url} alt="Logo My Room" /></div>
+          <div className="mr-card-logo logo-slot" aria-hidden="true" />
           <div className="mr-form-heading">
             <span className="mr-eyebrow">RUANG LO, MULAI DI SINI</span>
-            <h1 id="login-title">Masuk ke My Room</h1>
-            <p>Senang ketemu lo lagi.</p>
+            <h1 id="mr-auth-title">{copy.title}</h1>
+            <p>{copy.description}</p>
           </div>
           <form className="mr-form" onSubmit={handleSubmit}>
+            {mode === "register" ? (
+              <label className="mr-field" htmlFor="my-room-name">
+                Nama lengkap
+                <span className="mr-field-shell">
+                  {USER_ICON}
+                  <input id="my-room-name" type="text" autoComplete="name" required value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Nama lengkap lo" disabled={busy} />
+                </span>
+              </label>
+            ) : null}
             <label className="mr-field" htmlFor="my-room-email">
               Email
               <span className="mr-field-shell">
-                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6" aria-hidden="true"><path d="M4 6.5h16v11H4zM4.5 7l7.5 6 7.5-6" /></svg>
+                {MAIL_ICON}
                 <input id="my-room-email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@email.com" disabled={busy} />
               </span>
             </label>
-            <label className="mr-field" htmlFor="my-room-password">
-              Password
-              <span className="mr-field-shell">
-                <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.6" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
-                <input id="my-room-password" className="mr-password-input" type={showPassword ? "text" : "password"} autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Masukkan password" disabled={busy} />
-                <Button type="button" variant="ghost" size="icon" className="mr-eye" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"} aria-pressed={showPassword}>
-                  {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                </Button>
-              </span>
-            </label>
-            <div className="mr-forgot-row"><Link to="/forgot-password">Lupa password?</Link></div>
-            {status ? <p className="mr-status" role="status">{status}</p> : null}
+            {mode !== "forgot" ? (
+              <label className="mr-field" htmlFor="my-room-password">
+                Password
+                <span className="mr-field-shell">
+                  {LOCK_ICON}
+                  <input id="my-room-password" className="mr-password-input" type={showPassword ? "text" : "password"} autoComplete={mode === "login" ? "current-password" : "new-password"} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Masukkan password" disabled={busy} />
+                  <Button type="button" variant="ghost" size="icon" className="mr-eye" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"} aria-pressed={showPassword}>
+                    {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                  </Button>
+                </span>
+              </label>
+            ) : null}
+            {mode === "login" ? (
+              <div className="mr-forgot-row">
+                <button type="button" className="mr-link" onClick={() => switchMode("forgot")}>Lupa password?</button>
+              </div>
+            ) : null}
+            {status ? <p className="mr-status status" role="status">{status}</p> : null}
             <Button type="submit" className="mr-submit" disabled={busy}>
-              <span>{busy ? "Memproses…" : "Masuk"}</span><ArrowRight aria-hidden="true" />
+              <span>{busy ? "Memproses…" : copy.action}</span><ArrowRight aria-hidden="true" />
             </Button>
           </form>
-          <div className="mr-signup-row"><span>Belum punya akun?</span><Link to="/register">Daftar</Link></div>
+          <div className="mr-signup-row">
+            {mode === "login" ? (
+              <>
+                <span>Belum punya akun?</span>
+                <button type="button" className="mr-link" onClick={() => switchMode("register")}>Daftar</button>
+              </>
+            ) : (
+              <>
+                <span>Sudah punya akun?</span>
+                <button type="button" className="mr-link" onClick={() => switchMode("login")}>Masuk</button>
+              </>
+            )}
+          </div>
           <p className="mr-privacy-note">Dengan masuk, lo menyetujui ruang kolaborasi yang aman dan saling menghargai.</p>
         </div>
       </section>
@@ -144,6 +251,8 @@ export function MyRoomAuth({ view = "login" }: { view?: "intro" | "login" }) {
   const [theme, setTheme] = useState<MyRoomTheme>("dark");
   const [paused, setPaused] = useState(false);
   const [ready, setReady] = useState(false);
+  const [phase, setPhase] = useState<"intro" | "form">("intro");
+  const initialPhaseRef = useRef<"intro" | "form">("intro");
   const transitioningRef = useRef(false);
 
   useEffect(() => {
@@ -153,9 +262,14 @@ export function MyRoomAuth({ view = "login" }: { view?: "intro" | "login" }) {
     document.documentElement.style.colorScheme = initialTheme;
     setTheme(initialTheme);
     setPaused(reducedMotion);
+    if (view === "login" && window.sessionStorage.getItem(SKIP_INTRO_KEY) === "1") {
+      window.sessionStorage.removeItem(SKIP_INTRO_KEY);
+      initialPhaseRef.current = "form";
+      setPhase("form");
+    }
     setReady(true);
     return () => setReady(false);
-  }, []);
+  }, [view]);
 
   useEffect(() => {
     if (!ready || !rootRef.current || engineRef.current) return;
@@ -163,6 +277,7 @@ export function MyRoomAuth({ view = "login" }: { view?: "intro" | "login" }) {
       logoUrls: [logoRkModel.url, logoUiModel.url],
       theme,
       paused,
+      view: initialPhaseRef.current === "form" ? "login" : "intro",
     });
     engineRef.current = engine;
     return () => {
@@ -185,39 +300,98 @@ export function MyRoomAuth({ view = "login" }: { view?: "intro" | "login" }) {
     });
   }
 
-  function enterLogin() {
-    if (transitioningRef.current) return;
-    transitioningRef.current = true;
-    const engine = engineRef.current;
-    if (!engine || paused) {
+  const openForm = useCallback(() => {
+    if (transitioningRef.current || phase === "form") return;
+    if (view === "intro") {
+      window.sessionStorage.setItem(SKIP_INTRO_KEY, "1");
       void navigate({ to: "/login" });
       return;
     }
-    engine.transitionToLogin(() => void navigate({ to: "/login" }));
+    transitioningRef.current = true;
+    const engine = engineRef.current;
+    if (!engine || paused) {
+      transitioningRef.current = false;
+      setPhase("form");
+      return;
+    }
+    engine.transitionToLogin(() => {
+      transitioningRef.current = false;
+      setPhase("form");
+    });
+  }, [navigate, paused, phase, view]);
+
+  const closeForm = useCallback(() => {
+    if (transitioningRef.current || phase === "intro") return;
+    setPhase("intro");
+    transitioningRef.current = true;
+    const engine = engineRef.current;
+    if (!engine) {
+      transitioningRef.current = false;
+      return;
+    }
+    engine.exitLogin(() => {
+      transitioningRef.current = false;
+    });
+  }, [phase]);
+
+  useEffect(() => {
+    if (view !== "login") return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") closeForm();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [closeForm, view]);
+
+  const pressRef = useRef<{ x: number; y: number } | null>(null);
+
+  function handleStagePointerDown(event: React.PointerEvent) {
+    pressRef.current = { x: event.clientX, y: event.clientY };
   }
+
+  function handleStageClick(event: React.MouseEvent) {
+    const start = pressRef.current;
+    pressRef.current = null;
+    if ((event.target as HTMLElement).closest(".mr-top")) return;
+    if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) return;
+    openForm();
+  }
+
+  const showIntro = view === "intro" || phase === "intro";
 
   if (!ready) return null;
   return (
     <div ref={rootRef} className="my-room" data-theme={theme}>
-      <main className={`mr-stage ${view === "login" ? "mr-login-view" : "mr-landing-view"}`} data-my-room-stage aria-label="My Room">
+      <main
+        className={`mr-stage ${showIntro ? "mr-landing-view" : "mr-login-view"}`}
+        data-my-room-stage
+        aria-label="My Room"
+        {...(showIntro ? { onPointerDown: handleStagePointerDown, onClick: handleStageClick } : {})}
+      >
         <div className="mr-aura" aria-hidden="true" />
         <div className="mr-horizon" aria-hidden="true" />
         <canvas className="mr-ambient" data-ambient-canvas aria-hidden="true" />
         <div className="mr-vignette" aria-hidden="true" />
         <MyRoomHeader paused={paused} theme={theme} onPause={() => setPaused((value) => !value)} onTheme={toggleTheme} />
-        <canvas className="mr-logos" data-logo-canvas role="img" aria-label="Logo My Room dan simbol M dalam tampilan 3D" />
+        <canvas className="mr-logos" data-logo-canvas role="img" aria-label="Logo RK dan Universitas Indonesia dalam tampilan 3D" />
         <canvas className="mr-particles" data-particle-canvas aria-hidden="true" />
         <LogoFallback />
-        {view === "intro" ? (
+        {showIntro ? (
           <>
-            <div className="mr-intro"><span className="mr-eyebrow">Selamat datang di My Room</span><h1>Dua identitas. Satu ruang bersama.</h1><p>Tempat terhubung, tempat bertumbuh.</p></div>
+            <div className="mr-intro">
+              <span className="mr-eyebrow">Selamat datang di My Room</span>
+              <h1>Dua identitas. Satu ruang bersama.</h1>
+              <p>Tempat terhubung, tempat bertumbuh.</p>
+            </div>
             <div className="mr-intro-footer">
-              <Button type="button" className="mr-enter" onClick={enterLogin}><span>Masuk ke ruang</span><i aria-hidden="true">↗</i></Button>
+              <Button type="button" className="mr-enter" onClick={openForm}><span>Klik di mana saja untuk masuk</span><i aria-hidden="true">↗</i></Button>
               <p>Geser untuk memutar logo · klik untuk masuk</p>
             </div>
-            <button type="button" className="mr-drag-surface" onClick={enterLogin} aria-label="Masuk ke ruang My Room" />
+            <button type="button" className="mr-drag-surface" onClick={openForm} aria-label="Masuk ke ruang My Room" />
           </>
-        ) : <LoginCard onBack={() => void navigate({ to: "/" })} />}
+        ) : (
+          <AuthCard onBack={view === "login" ? closeForm : () => void navigate({ to: "/" })} />
+        )}
         <footer className="mr-footer"><span><i />RUANG UNTUK BERTUMBUH</span><span>DUA IDENTITAS · SATU TUJUAN</span></footer>
       </main>
     </div>
