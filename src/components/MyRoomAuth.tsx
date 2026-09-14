@@ -179,7 +179,7 @@ function AuthCard({ onBack }: { onBack: () => void }) {
       <Button type="button" variant="ghost" className="mr-back" onClick={onBack}>← Kembali</Button>
       <section className="mr-account-area" aria-labelledby="mr-auth-title">
         <div className="mr-card">
-          <div className="mr-card-logo logo-slot"><img src={logoAsset.url} alt="Logo My Room" /></div>
+          <div className="mr-card-logo logo-slot" aria-hidden="true" />
           <div className="mr-form-heading">
             <span className="mr-eyebrow">RUANG LO, MULAI DI SINI</span>
             <h1 id="mr-auth-title">{copy.title}</h1>

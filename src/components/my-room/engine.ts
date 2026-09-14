@@ -144,11 +144,11 @@ export function createMyRoomEngine(
     const eased = 1 - Math.pow(1 - poseValue, 3);
     return {
       x: width / 2 + direction * separation * (1 - eased * 0.72),
-      y: height * 0.5 - eased * height * 0.3 + Math.sin(clock * 0.75 + index * 1.8) * (paused ? 0 : 5),
+      y: height * 0.5 + eased * (128 - height * 0.5) + Math.sin(clock * 0.75 + index * 1.8) * (paused ? 0 : 5),
       size: size * (1 - eased * 0.68),
       spin: spin + direction * 0.12 + Math.sin(clock * 0.42) * 0.1,
       tilt: tilt + eased * 0.12,
-      alpha: 1 - eased * 0.28,
+      alpha: 1,
     };
   }
 

@@ -171,7 +171,7 @@
 }
 .my-room[data-theme="light"] .mr-card { border-color: rgba(42, 72, 120, .12); box-shadow: 0 28px 80px rgba(26, 60, 116, .14); }
 .mr-card::before { content: ""; position: absolute; top: 0; left: 10%; right: 10%; height: 1px; background: linear-gradient(90deg, transparent, rgba(166, 196, 252, .46), transparent); }
-.mr-card-logo { width: 70px; height: 70px; margin: 0 auto 16px; display: grid; place-items: center; }
+.mr-card-logo { width: 70px; height: 44px; margin: 0 auto 16px; display: grid; place-items: center; }
 .mr-card-logo img { width: 66px; height: 66px; object-fit: contain; filter: drop-shadow(0 9px 18px rgba(0, 0, 0, .18)); }
 .mr-form-heading { margin-bottom: 26px; text-align: center; }
 .mr-form-heading .mr-eyebrow { font-size: 8px; letter-spacing: .2em; }
@@ -215,7 +215,9 @@
 
 .mr-login-view .mr-horizon { opacity: .24; }
 .mr-login-view .mr-aura { opacity: .5; }
-.mr-login-view .mr-logos, .mr-login-view .mr-fallback { opacity: .34; }
+.mr-login-view .mr-logos { z-index: 20; opacity: 1; }
+.mr-login-view .mr-particles { z-index: 21; }
+.mr-login-view .mr-fallback { z-index: 20; opacity: 1; }
 .mr-fallback { z-index: 7; display: flex; align-items: center; justify-content: center; gap: min(9vw, 95px); }
 .mr-webgl-ready .mr-fallback { display: none; }
 .mr-fallback-logo { width: min(190px, 27vw, 24vh); aspect-ratio: 1; display: grid; place-items: center; border-radius: 24%; box-shadow: 0 20px 40px rgba(0,0,0,.18); }
