@@ -220,6 +220,7 @@ export function createMyRoomEngine(
     const rawDelta = (now - last) / 1000;
     const delta = Math.min(rawDelta, 0.05);
     last = now;
+    if (poseValue !== poseTarget) console.log("MRF", poseValue.toFixed(3), rawDelta.toFixed(3));
     if (poseValue !== poseTarget) {
       const step = Math.min(rawDelta, 0.25) / 0.9;
       poseValue =
