@@ -107,13 +107,17 @@ export function createMyRoomEngine(
   root: HTMLElement,
   options: MyRoomEngineOptions,
 ): MyRoomEngineHandle {
-  const stage = root.querySelector<HTMLElement>("[data-my-room-stage]");
-  const ambientCanvas = root.querySelector<HTMLCanvasElement>("[data-ambient-canvas]");
-  const logoCanvas = root.querySelector<HTMLCanvasElement>("[data-logo-canvas]");
-  const particleCanvas = root.querySelector<HTMLCanvasElement>("[data-particle-canvas]");
-  if (!stage || !ambientCanvas || !logoCanvas || !particleCanvas) {
+  const stageNode = root.querySelector<HTMLElement>("[data-my-room-stage]");
+  const ambientNode = root.querySelector<HTMLCanvasElement>("[data-ambient-canvas]");
+  const logoNode = root.querySelector<HTMLCanvasElement>("[data-logo-canvas]");
+  const particleNode = root.querySelector<HTMLCanvasElement>("[data-particle-canvas]");
+  if (!stageNode || !ambientNode || !logoNode || !particleNode) {
     throw new Error("My Room canvas elements are unavailable");
   }
+  const stage: HTMLElement = stageNode;
+  const ambientCanvas: HTMLCanvasElement = ambientNode;
+  const logoCanvas: HTMLCanvasElement = logoNode;
+  const particleCanvas: HTMLCanvasElement = particleNode;
 
   let destroyed = false;
   let paused = options.paused;
