@@ -3,6 +3,8 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Eye, EyeOff, Moon, Pause, Play, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoAsset from "@/assets/Logo_aplikasi_MR.png.asset.json";
+import logoRkModel from "@/assets/Logo_RK_3D.glb.asset.json";
+import logoUiModel from "@/assets/Logo_UI_3D.glb.asset.json";
 import { supabase } from "@/lib/supabase-external";
 import {
   createMyRoomEngine,
@@ -158,7 +160,7 @@ export function MyRoomAuth({ view = "login" }: { view?: "intro" | "login" }) {
   useEffect(() => {
     if (!ready || !rootRef.current || engineRef.current) return;
     const engine = createMyRoomEngine(rootRef.current, {
-      logoUrl: logoAsset.url,
+      logoUrls: [logoRkModel.url, logoUiModel.url],
       theme,
       paused,
     });
