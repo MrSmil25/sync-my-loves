@@ -3,6 +3,7 @@ import { MyRoomAuth } from "@/components/MyRoomAuth";
 import myRoomLogo from "@/assets/Logo_aplikasi_MR.png.asset.json";
 
 export const Route = createFileRoute("/login")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Masuk — My Room" },
