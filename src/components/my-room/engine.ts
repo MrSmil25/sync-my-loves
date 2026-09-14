@@ -217,10 +217,11 @@ export function createMyRoomEngine(
   function frame(now: number) {
     raf = 0;
     if (destroyed || document.hidden) return;
-    const delta = Math.min((now - last) / 1000, 0.05);
+    const rawDelta = (now - last) / 1000;
+    const delta = Math.min(rawDelta, 0.05);
     last = now;
     if (poseValue !== poseTarget) {
-      const step = delta / 0.9;
+      const step = Math.min(rawDelta, 0.25) / 0.9;
       poseValue =
         poseTarget > poseValue
           ? Math.min(poseTarget, poseValue + step)
