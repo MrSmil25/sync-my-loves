@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MyRoomAuth } from "@/components/MyRoomAuth";
+import myRoomLogo from "@/assets/Logo_aplikasi_MR.png.asset.json";
 
 export const Route = createFileRoute("/login")({
   ssr: false,
@@ -21,12 +22,16 @@ export const Route = createFileRoute("/login")({
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap",
+      },
+      { rel: "preload", as: "image", href: myRoomLogo.url },
     ],
   }),
   component: LoginPage,
 });
 
 function LoginPage() {
-  return <MyRoomAuth view="login" />;
+  return <MyRoomAuth />;
 }
