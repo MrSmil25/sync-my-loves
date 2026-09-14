@@ -74,7 +74,7 @@ export function createMyRoomEngine(
   const particleContext = particleCanvas.getContext("2d");
   const layer = createLogoLayer(logoCanvas, options.logoUrls, () => {
     if (destroyed) return;
-    stage.classList.add("mr-webgl-ready");
+    (stage.closest(".my-room") ?? stage).classList.add("mr-webgl-ready");
     const first = layer.snapshot(0);
     const second = layer.snapshot(1);
     particles = [
@@ -341,7 +341,7 @@ export function createMyRoomEngine(
       layer.dispose();
       particles = [];
       transitionDone = null;
-      stage.classList.remove("mr-webgl-ready");
+      (stage.closest(".my-room") ?? stage).classList.remove("mr-webgl-ready");
     },
   };
 }
