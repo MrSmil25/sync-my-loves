@@ -260,7 +260,7 @@ export function createMyRoomEngine(
     for (let y = 0; y < canvas.height; y += stride) {
       for (let x = 0; x < canvas.width; x += stride) {
         const offset = (y * canvas.width + x) * 4;
-        const alpha = image.data[offset + 3] / 255;
+        const alpha = (image.data[offset + 3] ?? 0) / 255;
         if (alpha < 0.2 || ((x + y) / stride) % 2 > 0.8) continue;
         result.push({
           source,
