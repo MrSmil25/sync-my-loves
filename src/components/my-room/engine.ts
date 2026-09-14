@@ -6,12 +6,14 @@ export type MyRoomEngineOptions = {
   logoUrls: [string, string];
   theme: MyRoomTheme;
   paused: boolean;
+  view?: "intro" | "login";
 };
 
 export type MyRoomEngineHandle = {
   setPaused: (paused: boolean) => void;
   setTheme: (theme: MyRoomTheme) => void;
   transitionToLogin: (done: () => void) => void;
+  exitLogin: (done?: () => void) => void;
   destroy: () => void;
 };
 
@@ -63,7 +65,8 @@ export function createMyRoomEngine(
   let dragStartX = 0;
   let dragLastX = 0;
   let dragLastY = 0;
-  let transitionStart = 0;
+  let poseValue = options.view === "login" ? 1 : 0;
+  let poseTarget = poseValue;
   let transitionDone: (() => void) | null = null;
   let particles: Particle[] = [];
   const abort = new AbortController();
@@ -138,15 +141,14 @@ export function createMyRoomEngine(
     const size = Math.min(190, width * 0.27, height * 0.245);
     const separation = Math.min(148, width * 0.205);
     const direction = index === 0 ? -1 : 1;
-    const transition = transitionStart ? Math.min(1, (performance.now() - transitionStart) / 900) : 0;
-    const eased = 1 - Math.pow(1 - transition, 3);
+    const eased = 1 - Math.pow(1 - poseValue, 3);
     return {
       x: width / 2 + direction * separation * (1 - eased * 0.72),
       y: height * 0.5 - eased * height * 0.3 + Math.sin(clock * 0.75 + index * 1.8) * (paused ? 0 : 5),
       size: size * (1 - eased * 0.68),
       spin: spin + direction * 0.12 + Math.sin(clock * 0.42) * 0.1,
       tilt: tilt + eased * 0.12,
-      alpha: 1 - eased * 0.72,
+      alpha: 1 - eased * 0.28,
     };
   }
 
@@ -187,13 +189,14 @@ export function createMyRoomEngine(
     }
   }
 
-  function drawParticles(now: number) {
+  function drawParticles() {
     if (!particleContext) return;
     particleContext.setTransform(ratio, 0, 0, ratio, 0, 0);
     particleContext.clearRect(0, 0, width, height);
-    if (!transitionStart || !particles.length) return;
-    const progress = Math.min(1, (now - transitionStart) / 900);
+    if (!particles.length) return;
+    const progress = poseValue;
     const scatter = Math.sin(progress * Math.PI);
+    if (scatter < 0.01) return;
     particleContext.save();
     particleContext.globalCompositeOperation = theme === "light" ? "source-over" : "lighter";
     for (const particle of particles) {
@@ -216,6 +219,18 @@ export function createMyRoomEngine(
     if (destroyed || document.hidden) return;
     const delta = Math.min((now - last) / 1000, 0.05);
     last = now;
+    if (poseValue !== poseTarget) {
+      const step = delta / 0.9;
+      poseValue =
+        poseTarget > poseValue
+          ? Math.min(poseTarget, poseValue + step)
+          : Math.max(poseTarget, poseValue - step);
+      if (poseValue === poseTarget) {
+        const done = transitionDone;
+        transitionDone = null;
+        done?.();
+      }
+    }
     if (!paused) {
       clock += delta;
       easedX += (pointerX - easedX) * (1 - Math.exp(-delta * 5));
@@ -228,19 +243,12 @@ export function createMyRoomEngine(
     }
     drawAmbient();
     drawLogos();
-    drawParticles(now);
-    if (transitionStart && now - transitionStart >= 900) {
-      const done = transitionDone;
-      transitionDone = null;
-      transitionStart = 0;
-      done?.();
-      return;
-    }
-    if (!paused || transitionStart) schedule();
+    drawParticles();
+    if (!paused || poseValue !== poseTarget) schedule();
   }
 
   function pointerDown(event: PointerEvent) {
-    if (paused || transitionStart) return;
+    if (paused || poseValue !== poseTarget) return;
     dragging = true;
     dragStartX = event.clientX;
     dragLastX = event.clientX;
@@ -301,9 +309,23 @@ export function createMyRoomEngine(
       schedule();
     },
     transitionToLogin(done) {
-      if (transitionStart) return;
-      transitionStart = performance.now();
+      if (poseTarget === 1) {
+        done();
+        return;
+      }
+      poseTarget = 1;
       transitionDone = done;
+      last = performance.now();
+      schedule();
+    },
+    exitLogin(done) {
+      if (poseTarget === 0) {
+        done?.();
+        return;
+      }
+      poseTarget = 0;
+      transitionDone = done ?? null;
+      last = performance.now();
       schedule();
     },
     destroy() {
