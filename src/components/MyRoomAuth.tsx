@@ -301,14 +301,12 @@ export function MyRoomAuth({ view = "login" }: { view?: "intro" | "login" }) {
   }
 
   const openForm = useCallback(() => {
-    console.log("MRDBG click", transitioningRef.current, phase);
     if (transitioningRef.current || phase === "form") return;
     if (view === "intro") {
       window.sessionStorage.setItem(SKIP_INTRO_KEY, "1");
       void navigate({ to: "/login" });
       return;
     }
-    console.log("MRDBG openForm", view, phase, !!engineRef.current, paused);
     transitioningRef.current = true;
     const engine = engineRef.current;
     if (!engine || paused) {
@@ -317,7 +315,6 @@ export function MyRoomAuth({ view = "login" }: { view?: "intro" | "login" }) {
       return;
     }
     engine.transitionToLogin(() => {
-      console.log("MRDBG done");
       transitioningRef.current = false;
       setPhase("form");
     });
