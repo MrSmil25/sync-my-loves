@@ -1,7 +1,9 @@
+import { createLogoLayer } from "./logos3d";
+
 export type MyRoomTheme = "light" | "dark";
 
 export type MyRoomEngineOptions = {
-  logoUrl: string;
+  logoUrls: [string, string];
   theme: MyRoomTheme;
   paused: boolean;
 };
@@ -11,11 +13,6 @@ export type MyRoomEngineHandle = {
   setTheme: (theme: MyRoomTheme) => void;
   transitionToLogin: (done: () => void) => void;
   destroy: () => void;
-};
-
-type LogoSprite = {
-  texture: WebGLTexture;
-  sample: HTMLCanvasElement;
 };
 
 type Particle = {
@@ -29,79 +26,6 @@ type Particle = {
   color: string;
 };
 
-const VERTEX_SHADER = `
-attribute vec2 aPosition;
-attribute vec2 aUv;
-uniform vec2 uViewport;
-uniform vec2 uCenter;
-uniform float uSize;
-uniform float uSpin;
-uniform float uTilt;
-uniform float uDepth;
-varying vec2 vUv;
-varying float vShade;
-void main() {
-  float cy = cos(uSpin), sy = sin(uSpin);
-  float cx = cos(uTilt), sx = sin(uTilt);
-  vec3 p = vec3(aPosition.x, aPosition.y, 0.0);
-  p = vec3(cy * p.x + sy * p.z, p.y, -sy * p.x + cy * p.z);
-  p = vec3(p.x, cx * p.y - sx * p.z, sx * p.y + cx * p.z);
-  float perspective = uDepth / (uDepth - p.z * uSize);
-  vec2 screen = uCenter + vec2(p.x, -p.y) * uSize * perspective;
-  gl_Position = vec4(screen.x / uViewport.x * 2.0 - 1.0, 1.0 - screen.y / uViewport.y * 2.0, 0.0, 1.0);
-  vUv = aUv;
-  vShade = .74 + .26 * abs(cy);
-}`;
-
-const FRAGMENT_SHADER = `
-precision mediump float;
-uniform sampler2D uTexture;
-uniform float uAlpha;
-uniform float uLight;
-varying vec2 vUv;
-varying float vShade;
-void main() {
-  vec4 color = texture2D(uTexture, vUv);
-  if (color.a < .025) discard;
-  float lift = uLight * .07;
-  gl_FragColor = vec4(min(vec3(1.0), color.rgb * vShade + lift), color.a * uAlpha);
-}`;
-
-function makeNeutralLogo(): HTMLCanvasElement {
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 512;
-  const context = canvas.getContext("2d");
-  if (!context) return canvas;
-  const gradient = context.createLinearGradient(60, 40, 450, 470);
-  gradient.addColorStop(0, "#183f91");
-  gradient.addColorStop(0.55, "#3663d4");
-  gradient.addColorStop(1, "#27b8e8");
-  context.fillStyle = gradient;
-  context.beginPath();
-  context.roundRect(42, 42, 428, 428, 108);
-  context.fill();
-  context.strokeStyle = "rgba(255,255,255,.36)";
-  context.lineWidth = 8;
-  context.stroke();
-  context.fillStyle = "#ffffff";
-  context.font = "600 270px Inter, Arial, sans-serif";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText("M", 256, 280);
-  return canvas;
-}
-
-function imageToCanvas(image: HTMLImageElement): HTMLCanvasElement {
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 512;
-  const context = canvas.getContext("2d");
-  if (!context) return canvas;
-  context.clearRect(0, 0, 512, 512);
-  context.drawImage(image, 26, 26, 460, 460);
-  return canvas;
-}
 
 export function createMyRoomEngine(
   root: HTMLElement,
@@ -141,16 +65,21 @@ export function createMyRoomEngine(
   let dragLastY = 0;
   let transitionStart = 0;
   let transitionDone: (() => void) | null = null;
-  let sprites: [LogoSprite, LogoSprite] | null = null;
   let particles: Particle[] = [];
   const abort = new AbortController();
   const ambient = ambientCanvas.getContext("2d");
   const particleContext = particleCanvas.getContext("2d");
-  const gl = logoCanvas.getContext("webgl", {
-    alpha: true,
-    antialias: true,
-    premultipliedAlpha: false,
-    powerPreference: "low-power",
+  const layer = createLogoLayer(logoCanvas, options.logoUrls, () => {
+    if (destroyed) return;
+    stage.classList.add("mr-webgl-ready");
+    const first = layer.snapshot(0);
+    const second = layer.snapshot(1);
+    particles = [
+      ...(first ? sampleCanvas(first, 0) : []),
+      ...(second ? sampleCanvas(second, 1) : []),
+    ];
+    resize();
+    schedule();
   });
 
   const dust = Array.from({ length: 68 }, (_, index) => ({
@@ -172,83 +101,9 @@ export function createMyRoomEngine(
         canvas.height = nextHeight;
       }
     }
-    gl?.viewport(0, 0, logoCanvas.width, logoCanvas.height);
+    layer.setSize(width, height, ratio);
   }
 
-  function compile(type: number, source: string) {
-    if (!gl) return null;
-    const shader = gl.createShader(type);
-    if (!shader) return null;
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      gl.deleteShader(shader);
-      return null;
-    }
-    return shader;
-  }
-
-  const program = gl?.createProgram() ?? null;
-  const vertex = gl ? compile(gl.VERTEX_SHADER, VERTEX_SHADER) : null;
-  const fragment = gl ? compile(gl.FRAGMENT_SHADER, FRAGMENT_SHADER) : null;
-  if (gl && program && vertex && fragment) {
-    gl.attachShader(program, vertex);
-    gl.attachShader(program, fragment);
-    gl.linkProgram(program);
-    gl.deleteShader(vertex);
-    gl.deleteShader(fragment);
-    gl.useProgram(program);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.clearColor(0, 0, 0, 0);
-  }
-
-  const positionLocation = gl && program ? gl.getAttribLocation(program, "aPosition") : -1;
-  const uvLocation = gl && program ? gl.getAttribLocation(program, "aUv") : -1;
-  const uniforms = gl && program
-    ? {
-        viewport: gl.getUniformLocation(program, "uViewport"),
-        center: gl.getUniformLocation(program, "uCenter"),
-        size: gl.getUniformLocation(program, "uSize"),
-        spin: gl.getUniformLocation(program, "uSpin"),
-        tilt: gl.getUniformLocation(program, "uTilt"),
-        depth: gl.getUniformLocation(program, "uDepth"),
-        alpha: gl.getUniformLocation(program, "uAlpha"),
-        light: gl.getUniformLocation(program, "uLight"),
-        texture: gl.getUniformLocation(program, "uTexture"),
-      }
-    : null;
-
-  const geometry = gl?.createBuffer() ?? null;
-  if (gl && geometry) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, geometry);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([
-        -0.5, -0.5, 0, 1,
-        0.5, -0.5, 1, 1,
-        -0.5, 0.5, 0, 0,
-        -0.5, 0.5, 0, 0,
-        0.5, -0.5, 1, 1,
-        0.5, 0.5, 1, 0,
-      ]),
-      gl.STATIC_DRAW,
-    );
-  }
-
-  function textureFromCanvas(canvas: HTMLCanvasElement): WebGLTexture | null {
-    if (!gl) return null;
-    const texture = gl.createTexture();
-    if (!texture) return null;
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
-    return texture;
-  }
 
   function sampleCanvas(canvas: HTMLCanvasElement, source: 0 | 1) {
     const context = canvas.getContext("2d", { willReadFrequently: true });
@@ -278,24 +133,6 @@ export function createMyRoomEngine(
     return result;
   }
 
-  const neutralCanvas = makeNeutralLogo();
-  const image = new Image();
-  image.decoding = "async";
-  image.onload = () => {
-    if (destroyed || !gl) return;
-    const brandCanvas = imageToCanvas(image);
-    const first = textureFromCanvas(brandCanvas);
-    const second = textureFromCanvas(neutralCanvas);
-    if (!first || !second) return;
-    sprites = [
-      { texture: first, sample: brandCanvas },
-      { texture: second, sample: neutralCanvas },
-    ];
-    stage.classList.add("mr-webgl-ready");
-    particles = [...sampleCanvas(brandCanvas, 0), ...sampleCanvas(neutralCanvas, 1)];
-    schedule();
-  };
-  image.src = options.logoUrl;
 
   function logoPose(index: number) {
     const size = Math.min(190, width * 0.27, height * 0.245);
@@ -314,29 +151,8 @@ export function createMyRoomEngine(
   }
 
   function drawLogos() {
-    if (!gl || !program || !geometry || !uniforms || !sprites) return;
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.useProgram(program);
-    gl.bindBuffer(gl.ARRAY_BUFFER, geometry);
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 16, 0);
-    gl.enableVertexAttribArray(uvLocation);
-    gl.vertexAttribPointer(uvLocation, 2, gl.FLOAT, false, 16, 8);
-    gl.uniform2f(uniforms.viewport, width, height);
-    gl.uniform1f(uniforms.depth, 2.5);
-    gl.uniform1f(uniforms.light, theme === "light" ? 1 : 0);
-    gl.uniform1i(uniforms.texture, 0);
-    sprites.forEach((sprite, index) => {
-      const pose = logoPose(index);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, sprite.texture);
-      gl.uniform2f(uniforms.center, pose.x, pose.y);
-      gl.uniform1f(uniforms.size, pose.size);
-      gl.uniform1f(uniforms.spin, pose.spin);
-      gl.uniform1f(uniforms.tilt, pose.tilt);
-      gl.uniform1f(uniforms.alpha, pose.alpha);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-    });
+    if (!layer.ready) return;
+    layer.render([logoPose(0), logoPose(1)], theme === "light");
   }
 
   function drawAmbient() {
@@ -497,13 +313,7 @@ export function createMyRoomEngine(
       resizeObserver.disconnect();
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
-      if (gl) {
-        if (sprites) sprites.forEach((sprite) => gl.deleteTexture(sprite.texture));
-        if (geometry) gl.deleteBuffer(geometry);
-        if (program) gl.deleteProgram(program);
-        gl.getExtension("WEBGL_lose_context")?.loseContext();
-      }
-      sprites = null;
+      layer.dispose();
       particles = [];
       transitionDone = null;
       stage.classList.remove("mr-webgl-ready");
